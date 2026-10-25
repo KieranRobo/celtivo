@@ -1,36 +1,68 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Celtivo
 
-## Getting Started
+Group travel, minus the admin — [celtivo.com](https://celtivo.com).
 
-First, run the development server:
+## Getting started
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+pnpm install
+pnpm dev          # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+| Script          | What it does                                        |
+| --------------- | --------------------------------------------------- |
+| `pnpm dev`      | Dev server (Turbopack)                              |
+| `pnpm build`    | Production build                                    |
+| `pnpm check`    | Typecheck + lint + format check + unit tests        |
+| `pnpm test`     | Vitest in watch mode                                |
+| `pnpm test:e2e` | Playwright, desktop + mobile (builds the app first) |
+| `pnpm format`   | Prettier (also sorts Tailwind classes)              |
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Stack
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- **Next.js 16** (App Router, React 19, TypeScript, Cache Components) — read the
+  bundled docs in `node_modules/next/dist/docs/` before relying on older patterns.
+- **Tailwind CSS v4** with the Celtivo tokens in `src/app/globals.css`.
+- **shadcn/ui conventions** on **Radix** primitives (`radix-ui`), `cva` for variants,
+  `cn()` in `src/lib/utils.ts`. `pnpm dlx shadcn@latest add <component>` drops new
+  components into `src/components/ui`, already themed.
+- **Phosphor icons** (`@phosphor-icons/react`), as the design system specifies.
+- **TanStack Query** for server state, **Zustand** for small shared client state.
+- **React Hook Form + Zod** for forms; schemas are shared with API route handlers.
+- **Vitest + Testing Library** for unit tests, **Playwright** for end-to-end.
 
-## Learn More
+## Layout
 
-To learn more about Next.js, take a look at the following resources:
+```
+src/
+  app/                 routes only — keep these thin
+    (marketing)/       public pages (landing)
+    trips/new/         create-trip screen
+    api/trips/         route handlers
+  components/
+    ui/                design-system primitives (Button, Input, Tag, Field, …)
+    brand/             Logo
+  features/<feature>/  everything for one product area: components, schema,
+                       api hooks, stores, tests
+  lib/                 framework-agnostic helpers
+e2e/                   Playwright specs
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+New product areas go in `src/features/<name>/`; routes in `src/app/` import from there.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Design
 
-## Deploy on Vercel
+The look comes from **Celtivo Landing Light** in Claude Design, built on the
+**Nocturne** design system's tonal ramps. Rules worth keeping:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- Take every colour from the ramps (`neutral-*`, `accent-*`, `accent-2-*`, `section*`)
+  — never a raw hex. On this light ground use 100–300 for grounds and tints, 600 as the
+  accent base, 700–900 for text.
+- `bg-section` (deep indigo) is for large "presence" fills only.
+- Headings stay at weight 500; hierarchy is size and space.
+- Freestanding dividers use `rule-fade`; page width is `container-page` (1240px).
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Not built yet
+
+- Backend and auth — `POST /api/trips` validates and echoes back; swap in a database.
+- `/sign-in` and `/support` (currently fall through to the 404 page).
