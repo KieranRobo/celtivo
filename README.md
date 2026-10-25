@@ -18,6 +18,21 @@ pnpm dev          # http://localhost:3000
 | `pnpm test:e2e` | Playwright, desktop + mobile (builds the app first) |
 | `pnpm format`   | Prettier (also sorts Tailwind classes)              |
 
+## Docker
+
+The image is a multi-stage build on `node:24-alpine` using Next's `standalone` output, so
+the final image carries only the traced runtime files and runs as a non-root user.
+
+```bash
+docker compose up --build        # http://localhost:3000
+# or
+docker build -t celtivo .
+docker run --rm -p 3000:3000 celtivo
+```
+
+`GET /api/health` returns `{"status":"ok"}` and backs the image's `HEALTHCHECK`. Set
+`PORT` to change the port the server listens on inside the container.
+
 ## Stack
 
 - **Next.js 16** (App Router, React 19, TypeScript, Cache Components) — read the

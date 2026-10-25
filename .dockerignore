@@ -1,0 +1,13 @@
+.git
+.next
+node_modules
+e2e
+test-results
+playwright-report
+blob-report
+coverage
+.env*
+.DS_Store
+Dockerfile
+docker-compose.yml
+.dockerignore
