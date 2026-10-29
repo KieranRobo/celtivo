@@ -19,7 +19,9 @@ Status: ⬜ not started · 🟨 in progress · ✅ done
 ## Already built
 
 - Landing page (Celtivo Landing Light design) and the create-trip screen.
-- `POST /api/trips` — validates with Zod and echoes back; **no database yet**.
+- `POST /api/trips` — validates with Zod and saves the trip to Postgres (Drizzle).
+- Trip dashboard at `/trip/<name-slug>-<5 random chars>` (e.g. `/trip/ski-trip-2027-k3x9q`):
+  creating a trip lands there; it shows the trip's details and a copy-link button.
 - `GET /api/health`, Docker image, deployed on Dokploy behind Cloudflare.
 
 ---
@@ -51,7 +53,7 @@ in practice? Are PDFs needed in v1?
 
 ---
 
-## Phase 1 — Foundations: database, accounts, real trips ⬜
+## Phase 1 — Foundations: database, accounts, real trips 🟨
 
 **Goal:** trips and members exist for real, and people can sign in.
 
@@ -63,7 +65,7 @@ in practice? Are PDFs needed in v1?
 - Sign-in by **email one-time code** (works in mobile webviews later; no passwords).
 - Replace the `/api/trips` stub with real trip creation; the invite link
   (`/join/<slug>`) lets someone join with just a name.
-- Trip page shell at `/trip/<slug>` (the URL the landing page already shows).
+- ~~Trip page shell at `/trip/<slug>`~~ — done; slugs carry a random suffix (decision log).
 - Build `/sign-in` (currently 404s).
 
 **Out of scope:** inbound email, bookings.

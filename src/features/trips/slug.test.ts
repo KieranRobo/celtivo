@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { slugify, tripTitle } from "./slug";
+import { slugify, tripSlug, tripTitle } from "./slug";
 
 describe("slugify", () => {
   it("lowercases and hyphenates", () => {
@@ -13,6 +13,17 @@ describe("slugify", () => {
 
   it("falls back to the example slug when nothing is left", () => {
     expect(slugify("!!!")).toBe("ski-trip-2027");
+  });
+});
+
+describe("tripSlug", () => {
+  it("adds five random characters to the name's slug", () => {
+    expect(tripSlug("Ski Trip 2027")).toMatch(/^ski-trip-2027-[a-z0-9]{5}$/);
+  });
+
+  it("rolls a different suffix each time", () => {
+    const slugs = new Set(Array.from({ length: 20 }, () => tripSlug("Lisbon")));
+    expect(slugs.size).toBeGreaterThan(1);
   });
 });
 

@@ -6,6 +6,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useTripDraft } from "../draft-store";
 import { CreateTripForm } from "./create-trip-form";
 
+const push = vi.fn();
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
+
 function renderForm() {
   const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
   return render(
@@ -18,6 +21,7 @@ function renderForm() {
 describe("CreateTripForm", () => {
   beforeEach(() => {
     useTripDraft.getState().reset();
+    push.mockClear();
   });
 
   afterEach(() => {
@@ -44,14 +48,16 @@ describe("CreateTripForm", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("creates the trip and shows its invite link", async () => {
+  it("creates the trip and opens its dashboard", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       Response.json({
         id: "1",
-        slug: "lisbon",
+        slug: "lisbon-k3x9q",
         name: "Lisbon",
         groupSize: "5-8",
-        inviteUrl: "https://celtivo.com/join/lisbon",
+        createdAt: "2026-10-29T12:00:00.000Z",
+        url: "https://celtivo.com/trip/lisbon-k3x9q",
+        inviteUrl: "https://celtivo.com/join/lisbon-k3x9q",
       }),
     );
     vi.stubGlobal("fetch", fetchMock);
@@ -61,11 +67,10 @@ describe("CreateTripForm", () => {
     await userEvent.click(screen.getByRole("radio", { name: "5–8" }));
     await userEvent.click(screen.getByRole("button", { name: "Create Lisbon" }));
 
-    expect(await screen.findByText("https://celtivo.com/join/lisbon")).toBeInTheDocument();
+    await vi.waitFor(() => expect(push).toHaveBeenCalledWith("/trip/lisbon-k3x9q"));
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
       name: "Lisbon",
       groupSize: "5-8",
     });
-    expect(screen.getByRole("button", { name: "Copy invite link" })).toBeInTheDocument();
   });
 });

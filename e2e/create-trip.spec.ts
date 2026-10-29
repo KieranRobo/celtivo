@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-test("name a trip on the landing page and create it", async ({ page }) => {
+test("name a trip on the landing page, create it and land on its dashboard", async ({ page }) => {
   await page.goto("/");
 
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Nine friends. One trip.");
@@ -13,10 +13,11 @@ test("name a trip on the landing page and create it", async ({ page }) => {
   await expect(page.getByRole("textbox", { name: "Trip name" })).toHaveValue("Ski Trip 2027");
 
   await page.getByRole("button", { name: "Create Ski Trip 2027" }).click();
-  // Trips persist between runs, so a repeat run gets a suffixed slug.
-  await expect(
-    page.getByText(/^https:\/\/celtivo\.com\/join\/ski-trip-2027(-\w+)?$/),
-  ).toBeVisible();
+  await expect(page).toHaveURL(/\/trip\/ski-trip-2027-[a-z0-9]{5}$/);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Ski Trip 2027");
+  const slug = new URL(page.url()).pathname.split("/").pop();
+  await expect(page.getByText(`https://celtivo.com/trip/${slug}`)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Copy link" })).toBeVisible();
 });
 
 test("the landing page has no horizontal scroll", async ({ page }) => {

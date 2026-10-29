@@ -1,8 +1,8 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { CheckIcon, CopyIcon } from "@phosphor-icons/react";
-import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 
 import { Button } from "@/components/ui/button";
@@ -36,8 +36,8 @@ const nextSteps = [
 export function CreateTripForm() {
   const draftName = useTripDraft((state) => state.name);
   const setDraftName = useTripDraft((state) => state.setName);
+  const router = useRouter();
   const createTrip = useCreateTrip();
-  const [copied, setCopied] = useState(false);
 
   const form = useForm<CreateTripInput>({
     resolver: zodResolver(createTripSchema),
@@ -52,21 +52,17 @@ export function CreateTripForm() {
 
   const name = useWatch({ control: form.control, name: "name" }) ?? "";
   const title = tripTitle(name);
-  const inviteUrl = createTrip.data?.inviteUrl ?? `celtivo.com/join/${slugify(title)}`;
+  const inviteUrl = `celtivo.com/join/${slugify(title)}`;
   const { errors } = form.formState;
-
-  async function copyInvite() {
-    await navigator.clipboard.writeText(inviteUrl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }
 
   return (
     <div className="grid lg:grid-cols-2">
       <form
         noValidate
         className="px-[clamp(28px,4vw,56px)] pt-11 pb-12"
-        onSubmit={form.handleSubmit((values) => createTrip.mutate(values))}
+        onSubmit={form.handleSubmit((values) =>
+          createTrip.mutate(values, { onSuccess: (trip) => router.push(`/trip/${trip.slug}`) }),
+        )}
       >
         <h1 className="m-0 mb-2.5 text-[32px] leading-[1.14] tracking-[-0.018em] text-neutral-900">
           Let&apos;s make it real
@@ -141,8 +137,8 @@ export function CreateTripForm() {
             {createTrip.isError
               ? createTrip.error.message
               : createTrip.isSuccess
-                ? "Done. Send the invite link to the group."
-                : "You'll get an invite link on the next screen."}
+                ? "Opening your trip…"
+                : "You'll get a link to share on the next screen."}
           </span>
         </div>
       </form>
@@ -178,16 +174,6 @@ export function CreateTripForm() {
             </p>
             <p className="m-0 text-[13px] break-all text-accent-300 tabular-nums">{inviteUrl}</p>
           </div>
-          {createTrip.isSuccess && (
-            <button
-              type="button"
-              onClick={copyInvite}
-              aria-label={copied ? "Invite link copied" : "Copy invite link"}
-              className="grid size-9 flex-none cursor-pointer place-items-center rounded-md text-accent-300 transition-colors hover:bg-section-ghost"
-            >
-              {copied ? <CheckIcon size={18} /> : <CopyIcon size={18} />}
-            </button>
-          )}
         </div>
       </aside>
     </div>

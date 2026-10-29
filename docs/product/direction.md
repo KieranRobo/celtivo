@@ -134,3 +134,4 @@ separate project.
 | 2026-10-29 | Record settlements, never move money                          | Holding or moving funds brings FCA / e-money regulation                          |
 | 2026-10-29 | Mobile via Capacitor wrapping the live site, not React Native | One codebase; web must stay complete for guests who never install anything       |
 | 2026-10-29 | Business logic in server modules exposed via Route Handlers   | Keeps Server Actions thin and leaves a native client possible without a rewrite  |
+| 2026-10-29 | Trip URLs are `/trip/<name-slug>-<5 random chars>`            | Readable, unique without a lookup, and not guessable from the trip name alone    |

@@ -24,5 +24,9 @@ export type CreateTripInput = z.infer<typeof createTripSchema>;
 export type Trip = CreateTripInput & {
   id: string;
   slug: string;
+  /** ISO timestamp — a string so the type holds on both sides of the JSON API. */
+  createdAt: string;
+  /** The trip dashboard: https://celtivo.com/trip/<slug>. */
+  url: string;
   inviteUrl: string;
 };
