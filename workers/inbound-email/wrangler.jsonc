@@ -1,0 +1,26 @@
+// Deploy with `pnpm inbound:deploy`. Then, in Cloudflare: celtivo.space → Email Routing →
+// Routing rules → Catch-all → Send to a Worker → celtivo-inbound-email.
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "celtivo-inbound-email",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-01",
+  "r2_buckets": [
+    {
+      "binding": "INBOUND",
+      "bucket_name": "celtivo-inbound",
+      // The bucket was created in the EU jurisdiction; the binding has to say so too.
+      "jurisdiction": "eu",
+    },
+  ],
+  "vars": {
+    "APP_URL": "https://celtivo.com",
+  },
+  // Retries messages the app didn't acknowledge (see sweep() in src/inbound.ts).
+  "triggers": {
+    "crons": ["*/15 * * * *"],
+  },
+  "observability": {
+    "enabled": true,
+  },
+}

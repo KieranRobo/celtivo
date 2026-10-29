@@ -13,13 +13,17 @@ export function slugify(name: string): string {
   return slug || "ski-trip-2027";
 }
 
-/** A trip's URL slug: its name plus five random characters ("ski-trip-2027-k3x9q"). */
-export function tripSlug(name: string): string {
-  const suffix = Array.from(
-    crypto.getRandomValues(new Uint8Array(5)),
+/** `length` random lowercase letters and digits ("k3x9q"). */
+export function randomSuffix(length: number): string {
+  return Array.from(
+    crypto.getRandomValues(new Uint8Array(length)),
     (byte) => SUFFIX_ALPHABET[byte % SUFFIX_ALPHABET.length],
   ).join("");
-  return `${slugify(name)}-${suffix}`;
+}
+
+/** A trip's URL slug: its name plus five random characters ("ski-trip-2027-k3x9q"). */
+export function tripSlug(name: string): string {
+  return `${slugify(name)}-${randomSuffix(5)}`;
 }
 
 /** The trip's display title: what the organiser typed, or the example. */

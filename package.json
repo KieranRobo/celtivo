@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "typecheck": "next typegen && tsc --noEmit",
+    "typecheck": "next typegen && tsc --noEmit && tsc --noEmit -p workers/inbound-email",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "vitest",
@@ -17,6 +17,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
+    "inbound:send": "node scripts/inbound-send.ts",
+    "inbound:deploy": "wrangler deploy -c workers/inbound-email/wrangler.jsonc",
     "check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm test:run"
   },
   "dependencies": {
@@ -28,6 +30,7 @@
     "drizzle-orm": "^0.45.4",
     "next": "16.4.3",
     "pg": "^8.23.1",
+    "postal-mime": "^4.0.6",
     "radix-ui": "^1.8.1",
     "react": "19.3.0",
     "react-dom": "19.3.0",
@@ -37,6 +40,7 @@
     "zustand": "^5.0.16"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261014.1",
     "@next/env": "^16.4.3",
     "@playwright/test": "^1.64.1",
     "@tailwindcss/turbopack": "^4",
@@ -59,7 +63,8 @@
     "prettier-plugin-tailwindcss": "^0.8.1",
     "tailwindcss": "^4",
     "typescript": "^5",
-    "vitest": "^5.0.5"
+    "vitest": "^5.0.5",
+    "wrangler": "^4.151.0"
   },
   "packageManager": "pnpm@12.15.0"
 }

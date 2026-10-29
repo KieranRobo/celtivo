@@ -10,7 +10,7 @@ the group stops scrolling WhatsApp for "what time do you land?".
 
 ## The first feature: forward it to the trip
 
-Each trip gets a private inbound address, e.g. `ski-trip-2027-x7k2@in.celtivo.com`. Members
+Each trip gets a private inbound address, e.g. `ski-trip-2027-7hd2kq9x@celtivo.space`. Members
 forward any booking email — flights, stays, trains, events, PDF e-tickets — and Celtivo extracts
 the details onto a shared **trip board**:
 
@@ -135,3 +135,6 @@ separate project.
 | 2026-10-29 | Mobile via Capacitor wrapping the live site, not React Native | One codebase; web must stay complete for guests who never install anything       |
 | 2026-10-29 | Business logic in server modules exposed via Route Handlers   | Keeps Server Actions thin and leaves a native client possible without a rewrite  |
 | 2026-10-29 | Trip URLs are `/trip/<name-slug>-<5 random chars>`            | Readable, unique without a lookup, and not guessable from the trip name alone    |
+| 2026-10-29 | Inbound mail via Cloudflare Email Routing on `celtivo.space`  | Free and in our stack; a celtivo.com subdomain would take over celtivo.com's MX  |
+| 2026-10-29 | Trip address is `<name-slug>-<token>@celtivo.space`           | Catch-all routes any address; only the token is looked up, so renames are safe   |
+| 2026-10-29 | Raw emails go to R2, written by the Email Worker first        | Survives app downtime (Workers can't temp-fail); ~free; no new data processor    |

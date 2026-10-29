@@ -11,18 +11,20 @@ pnpm db:up        # local Postgres in Docker on :5432
 pnpm dev          # http://localhost:3000 — applies pending migrations on start
 ```
 
-| Script             | What it does                                        |
-| ------------------ | --------------------------------------------------- |
-| `pnpm dev`         | Dev server (Turbopack)                              |
-| `pnpm build`       | Production build                                    |
-| `pnpm check`       | Typecheck + lint + format check + unit tests        |
-| `pnpm test`        | Vitest in watch mode                                |
-| `pnpm test:e2e`    | Playwright, desktop + mobile (builds the app first) |
-| `pnpm format`      | Prettier (also sorts Tailwind classes)              |
-| `pnpm db:up`       | Start the local Postgres (`docker compose`)         |
-| `pnpm db:generate` | Write a SQL migration from changes to the schema    |
-| `pnpm db:migrate`  | Apply pending migrations to `DATABASE_URL`          |
-| `pnpm db:studio`   | Browse the database in Drizzle Studio               |
+| Script                | What it does                                        |
+| --------------------- | --------------------------------------------------- |
+| `pnpm dev`            | Dev server (Turbopack)                              |
+| `pnpm build`          | Production build                                    |
+| `pnpm check`          | Typecheck + lint + format check + unit tests        |
+| `pnpm test`           | Vitest in watch mode                                |
+| `pnpm test:e2e`       | Playwright, desktop + mobile (builds the app first) |
+| `pnpm format`         | Prettier (also sorts Tailwind classes)              |
+| `pnpm db:up`          | Start the local Postgres (`docker compose`)         |
+| `pnpm db:generate`    | Write a SQL migration from changes to the schema    |
+| `pnpm db:migrate`     | Apply pending migrations to `DATABASE_URL`          |
+| `pnpm db:studio`      | Browse the database in Drizzle Studio               |
+| `pnpm inbound:send`   | Run an `.eml` through the inbound pipeline locally  |
+| `pnpm inbound:deploy` | Deploy the inbound Email Worker to Cloudflare       |
 
 ## Docker
 
@@ -59,6 +61,36 @@ Postgres advisory lock so instances deploying together don't race, and refuses t
 if `DATABASE_URL` is missing or a migration fails. Never edit a migration that has
 already shipped — add a new one.
 
+## Inbound email
+
+Members forward bookings to their trip's address, `<name-slug>-<token>@celtivo.space`.
+Cloudflare Email Routing's catch-all on `celtivo.space` hands every message to the Email
+Worker in `workers/inbound-email/`, which saves the raw message to the `celtivo-inbound` R2
+bucket (EU jurisdiction) and then calls `POST /api/inbound/email`. The design and its
+reasoning are in [email-ingestion.md](./docs/product/email-ingestion.md).
+
+**Locally**, with `INBOUND_EMAIL_SECRET` in `.env.local` and `pnpm dev` running:
+
+```bash
+pnpm inbound:send path/to/booking.eml ski-trip-2027-7hd2kq9x@celtivo.space
+```
+
+The trip address is on the trip dashboard. The raw message is written to `.inbound/`
+(gitignored) instead of R2.
+
+**Deploying the Worker** (once, then again whenever `workers/inbound-email/` changes):
+
+1. `pnpm wrangler login`
+2. `pnpm inbound:deploy`
+3. `pnpm wrangler secret put INBOUND_EMAIL_SECRET -c workers/inbound-email/wrangler.jsonc`
+   — the same value as `INBOUND_EMAIL_SECRET` in the app's Dokploy environment.
+4. In Cloudflare: celtivo.space → Email Routing → Routing rules → Catch-all → action **Send to
+   a Worker** → `celtivo-inbound-email`.
+
+The Worker also runs every 15 minutes to retry any message the app didn't acknowledge (it
+leaves an `unacked/<key>` marker in the bucket). `pnpm wrangler tail celtivo-inbound-email`
+streams its logs.
+
 ## Stack
 
 - **Next.js 16** (App Router, React 19, TypeScript, Cache Components) — read the
@@ -89,6 +121,8 @@ src/
                        api hooks, stores, tests
   lib/                 framework-agnostic helpers
 drizzle/               generated SQL migrations (committed)
+workers/inbound-email/ Cloudflare Email Worker for trip mail (deployed separately)
+scripts/               one-off and dev scripts, run with plain `node`
 e2e/                   Playwright specs
 ```
 

@@ -1,3 +1,5 @@
+import { InboundEmailList } from "@/features/inbound/components/inbound-email-list";
+import type { InboundEmail } from "@/features/inbound/schema";
 import { cn } from "@/lib/utils";
 
 import { GROUP_SIZES, type Trip } from "../schema";
@@ -10,8 +12,8 @@ const createdDate = new Intl.DateTimeFormat("en-GB", {
   timeZone: "UTC",
 });
 
-/** The trip's home: everything the organiser told us when creating it. */
-export function TripDashboard({ trip }: { trip: Trip }) {
+/** The trip's home: what the organiser told us, and what's been forwarded to it. */
+export function TripDashboard({ trip, emails }: { trip: Trip; emails: InboundEmail[] }) {
   const groupSize = GROUP_SIZES.find((size) => size.value === trip.groupSize)?.label;
   const details = [
     { label: "Where to", value: trip.destination },
@@ -44,6 +46,8 @@ export function TripDashboard({ trip }: { trip: Trip }) {
             </div>
           ))}
         </dl>
+
+        <InboundEmailList emails={emails} />
       </section>
 
       <aside className="bg-section bg-[radial-gradient(600px_300px_at_90%_-10%,var(--color-section-glow),transparent_66%)] px-[clamp(24px,3vw,40px)] pt-11 pb-12">
@@ -54,6 +58,19 @@ export function TripDashboard({ trip }: { trip: Trip }) {
           Drop this link in the group chat so everyone lands on this page.
         </p>
         <CopyLink url={trip.url} />
+
+        <h2 className="mt-9 mb-3 block font-sans text-[11px] font-normal tracking-[0.1em] text-accent-300 uppercase">
+          Forward your bookings
+        </h2>
+        <p className="m-0 mb-5 text-[13px] leading-5 text-[color-mix(in_srgb,var(--color-neutral-100)_74%,transparent)]">
+          Flights, stays, tickets: forward the confirmation email to this address and it lands on
+          the trip.
+        </p>
+        <CopyLink
+          url={trip.inboundAddress}
+          label="Copy address"
+          copiedMessage="Forwarding address copied"
+        />
       </aside>
     </div>
   );

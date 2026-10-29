@@ -48,3 +48,6 @@ next-env.d.ts
 
 # Committed template for .env.local
 !.env.example
+
+# raw emails from `pnpm inbound:send` (stands in for R2 locally)
+/.inbound/

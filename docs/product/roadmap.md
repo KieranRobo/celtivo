@@ -79,16 +79,29 @@ claim their member record with an email?
 
 ---
 
-## Phase 2 — Inbound email pipeline ⬜
+## Phase 2 — Inbound email pipeline 🟨
 
 **Goal:** an email forwarded to a trip's address becomes a stored, extracted booking awaiting
 review.
 
 **Scope**
 
-- Per-trip inbound address on `in.celtivo.com`; MX + Cloudflare Email Routing catch-all → Email
-  Worker → `POST /api/inbound/email` (shared-secret check).
-- Raw message to R2; `inbound_emails` row; job enqueued.
+Split into two slices. 2a doesn't need phase 1's accounts, so it can be built first.
+
+**2a — Receive and store** 🟨 built, awaiting deploy (see
+[email-ingestion.md](./email-ingestion.md#receive-and-store-phase-2a))
+
+- Per-trip address `<name-slug>-<token>@celtivo.space`: Email Routing catch-all on the
+  dedicated domain → Email Worker, which saves the raw message to R2 and then calls
+  `POST /api/inbound/email` (shared-secret check).
+- `trips.inboundToken`, `inbound_emails` row with status `received`, dedupe on message-id.
+- Unknown addresses bounce; R2 lifecycle deletes raw mail after 30 days.
+- Local path: `pnpm inbound:send <file.eml> <trip-address>`, with `.inbound/` standing in for R2.
+- Done when: an email sent to a trip's address on production appears in a basic list on its
+  dashboard, and the raw message is in R2.
+
+**2b — Extract**
+
 - Worker service (second Dokploy app from this repo) with a Postgres-backed queue.
 - Sender rules: verified member addresses only, SPF/DKIM pass; others to an approval queue.
 - Extraction from phase 0 wired in; bookings saved as "pending review".
@@ -101,8 +114,7 @@ review.
 **Done when:** forwarding a real booking email from a member's address produces a correct
 pending booking within a minute on production, and duplicates and unknown senders are handled.
 
-**Open questions:** Cloudflare Email Workers vs Postmark Inbound? pg-boss vs graphile-worker?
-Address format (slug + random token vs token only)?
+**Open questions:** pg-boss vs graphile-worker?
 
 ---
 

@@ -5,8 +5,16 @@ import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 
-/** A link to share, shown in full beside a button that copies it. */
-export function CopyLink({ url }: { url: string }) {
+/** A link (or address) to share, shown in full beside a button that copies it. */
+export function CopyLink({
+  url,
+  label = "Copy link",
+  copiedMessage = "Trip link copied",
+}: {
+  url: string;
+  label?: string;
+  copiedMessage?: string;
+}) {
   const [copied, setCopied] = useState(false);
 
   async function copy() {
@@ -20,10 +28,10 @@ export function CopyLink({ url }: { url: string }) {
       <p className="m-0 text-[13px] break-all text-accent-300 tabular-nums">{url}</p>
       <Button size="lg" onClick={copy} className="w-full">
         {copied ? <CheckIcon size={18} /> : <CopyIcon size={18} />}
-        {copied ? "Copied" : "Copy link"}
+        {copied ? "Copied" : label}
       </Button>
       <span role="status" className="sr-only">
-        {copied ? "Trip link copied" : ""}
+        {copied ? copiedMessage : ""}
       </span>
     </div>
   );

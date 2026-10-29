@@ -29,4 +29,6 @@ export type Trip = CreateTripInput & {
   /** The trip dashboard: https://celtivo.com/trip/<slug>. */
   url: string;
   inviteUrl: string;
+  /** Where members forward bookings: <name-slug>-<token>@celtivo.space. */
+  inboundAddress: string;
 };
