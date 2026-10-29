@@ -77,6 +77,12 @@ The look comes from **Celtivo Landing Light** in Claude Design, built on the
 - Headings stay at weight 500; hierarchy is size and space.
 - Freestanding dividers use `rule-fade`; page width is `container-page` (1240px).
 
+## Product and roadmap
+
+Where Celtivo is going and the order it gets built in: [docs/product/](./docs/product/) —
+start with [direction.md](./docs/product/direction.md) and
+[roadmap.md](./docs/product/roadmap.md).
+
 ## Not built yet
 
 - Backend and auth — `POST /api/trips` validates and echoes back; swap in a database.
