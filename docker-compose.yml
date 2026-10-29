@@ -4,4 +4,31 @@ services:
     image: celtivo:latest
     ports:
       - "3000:3000"
+    environment:
+      DATABASE_URL: postgres://celtivo:celtivo@db:5432/celtivo
+    depends_on:
+      db:
+        condition: service_healthy
     restart: unless-stopped
+
+  # Local development only — production uses the Postgres service on Dokploy.
+  # `pnpm db:up` starts just this one for `pnpm dev`.
+  db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: celtivo
+      POSTGRES_PASSWORD: celtivo
+      POSTGRES_DB: celtivo
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - db-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U celtivo -d celtivo"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
+    restart: unless-stopped
+
+volumes:
+  db-data:

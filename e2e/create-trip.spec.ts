@@ -13,7 +13,10 @@ test("name a trip on the landing page and create it", async ({ page }) => {
   await expect(page.getByRole("textbox", { name: "Trip name" })).toHaveValue("Ski Trip 2027");
 
   await page.getByRole("button", { name: "Create Ski Trip 2027" }).click();
-  await expect(page.getByText("https://celtivo.com/join/ski-trip-2027")).toBeVisible();
+  // Trips persist between runs, so a repeat run gets a suffixed slug.
+  await expect(
+    page.getByText(/^https:\/\/celtivo\.com\/join\/ski-trip-2027(-\w+)?$/),
+  ).toBeVisible();
 });
 
 test("the landing page has no horizontal scroll", async ({ page }) => {

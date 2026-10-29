@@ -6,17 +6,23 @@ Group travel, minus the admin — [celtivo.com](https://celtivo.com).
 
 ```bash
 pnpm install
-pnpm dev          # http://localhost:3000
+cp .env.example .env.local
+pnpm db:up        # local Postgres in Docker on :5432
+pnpm dev          # http://localhost:3000 — applies pending migrations on start
 ```
 
-| Script          | What it does                                        |
-| --------------- | --------------------------------------------------- |
-| `pnpm dev`      | Dev server (Turbopack)                              |
-| `pnpm build`    | Production build                                    |
-| `pnpm check`    | Typecheck + lint + format check + unit tests        |
-| `pnpm test`     | Vitest in watch mode                                |
-| `pnpm test:e2e` | Playwright, desktop + mobile (builds the app first) |
-| `pnpm format`   | Prettier (also sorts Tailwind classes)              |
+| Script             | What it does                                        |
+| ------------------ | --------------------------------------------------- |
+| `pnpm dev`         | Dev server (Turbopack)                              |
+| `pnpm build`       | Production build                                    |
+| `pnpm check`       | Typecheck + lint + format check + unit tests        |
+| `pnpm test`        | Vitest in watch mode                                |
+| `pnpm test:e2e`    | Playwright, desktop + mobile (builds the app first) |
+| `pnpm format`      | Prettier (also sorts Tailwind classes)              |
+| `pnpm db:up`       | Start the local Postgres (`docker compose`)         |
+| `pnpm db:generate` | Write a SQL migration from changes to the schema    |
+| `pnpm db:migrate`  | Apply pending migrations to `DATABASE_URL`          |
+| `pnpm db:studio`   | Browse the database in Drizzle Studio               |
 
 ## Docker
 
@@ -30,8 +36,28 @@ docker build -t celtivo .
 docker run --rm -p 3000:3000 celtivo
 ```
 
+`docker compose up` also starts a local Postgres and points the app at it.
+
 `GET /api/health` returns `{"status":"ok"}` and backs the image's `HEALTHCHECK`. Set
 `PORT` to change the port the server listens on inside the container.
+
+## Database
+
+**Postgres** via **Drizzle ORM** (`pg` driver). Production uses the Postgres service on
+Dokploy: set the app's `DATABASE_URL` to that service's _internal_ connection URL, so the
+database never needs a public port.
+
+Schema changes are migration files, generated and committed:
+
+1. Edit the tables in `src/db/schema.ts` (camelCase in TypeScript, snake_case in SQL).
+2. `pnpm db:generate --name <what_changed>` writes `drizzle/NNNN_<what_changed>.sql`.
+   Read it — that SQL is exactly what will run in production.
+3. Commit the SQL and `drizzle/meta/` together with the schema change.
+
+The server applies pending migrations at startup (`src/instrumentation.ts`), behind a
+Postgres advisory lock so instances deploying together don't race, and refuses to serve
+if `DATABASE_URL` is missing or a migration fails. Never edit a migration that has
+already shipped — add a new one.
 
 ## Stack
 
@@ -44,6 +70,7 @@ docker run --rm -p 3000:3000 celtivo
 - **Phosphor icons** (`@phosphor-icons/react`), as the design system specifies.
 - **TanStack Query** for server state, **Zustand** for small shared client state.
 - **React Hook Form + Zod** for forms; schemas are shared with API route handlers.
+- **Drizzle ORM + drizzle-kit** on Postgres — see [Database](#database).
 - **Vitest + Testing Library** for unit tests, **Playwright** for end-to-end.
 
 ## Layout
@@ -54,12 +81,14 @@ src/
     (marketing)/       public pages (landing)
     trips/new/         create-trip screen
     api/trips/         route handlers
+  db/                  Drizzle client, table definitions, migration runner
   components/
     ui/                design-system primitives (Button, Input, Tag, Field, …)
     brand/             Logo
   features/<feature>/  everything for one product area: components, schema,
                        api hooks, stores, tests
   lib/                 framework-agnostic helpers
+drizzle/               generated SQL migrations (committed)
 e2e/                   Playwright specs
 ```
 
@@ -79,5 +108,5 @@ The look comes from **Celtivo Landing Light** in Claude Design, built on the
 
 ## Not built yet
 
-- Backend and auth — `POST /api/trips` validates and echoes back; swap in a database.
+- Auth — anyone can create a trip, and trips aren't tied to a user yet.
 - `/sign-in` and `/support` (currently fall through to the 404 page).

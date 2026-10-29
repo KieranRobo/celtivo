@@ -9,7 +9,7 @@ export const GROUP_SIZES = [
 
 export type GroupSize = (typeof GROUP_SIZES)[number]["value"];
 
-const groupSizeValues = GROUP_SIZES.map((size) => size.value) as [GroupSize, ...GroupSize[]];
+export const groupSizeValues = GROUP_SIZES.map((size) => size.value) as [GroupSize, ...GroupSize[]];
 
 /** Shared by the create-trip form (client) and the /api/trips handler (server). */
 export const createTripSchema = z.object({
