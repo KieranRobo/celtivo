@@ -7,4 +7,10 @@ export async function register() {
   }
   const { runMigrations } = await import("./db/migrate");
   await runMigrations();
+
+  // Reads forwarded emails into bookings in the background (features/extraction/job.ts).
+  if (process.env.EXTRACTION_JOB !== "off") {
+    const { startExtractionJob } = await import("./features/extraction/job");
+    startExtractionJob();
+  }
 }

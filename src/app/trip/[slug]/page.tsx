@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { cache, Suspense } from "react";
 
 import { Logo } from "@/components/brand/logo";
+import { listTripBookings } from "@/features/bookings/repository";
 import { listInboundEmails } from "@/features/inbound/repository";
 import { TripDashboard, TripDashboardSkeleton } from "@/features/trips/components/trip-dashboard";
 import { findTripBySlug } from "@/features/trips/repository";
@@ -36,5 +37,9 @@ export default function TripPage({ params }: PageProps<"/trip/[slug]">) {
 async function Trip({ slug }: { slug: string }) {
   const trip = await getTrip(slug);
   if (!trip) notFound();
-  return <TripDashboard trip={trip} emails={await listInboundEmails(trip.id)} />;
+  const [bookings, emails] = await Promise.all([
+    listTripBookings(trip.id),
+    listInboundEmails(trip.id),
+  ]);
+  return <TripDashboard trip={trip} bookings={bookings} emails={emails} />;
 }

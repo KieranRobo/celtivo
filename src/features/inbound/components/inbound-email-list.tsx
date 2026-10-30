@@ -1,4 +1,6 @@
-import type { InboundEmail } from "../schema";
+import { Tag } from "@/components/ui/tag";
+
+import type { InboundEmail, InboundEmailStatus } from "../schema";
 
 const receivedTime = new Intl.DateTimeFormat("en-GB", {
   day: "numeric",
@@ -8,7 +10,15 @@ const receivedTime = new Intl.DateTimeFormat("en-GB", {
   timeZone: "Europe/London",
 });
 
-/** Emails forwarded to the trip, newest first. A plain list until extraction exists. */
+const STATUS_LABELS: Record<InboundEmailStatus, string> = {
+  received: "Reading…",
+  extracting: "Reading…",
+  extracted: "Added",
+  ignored: "No booking found",
+  failed: "Couldn't read",
+};
+
+/** Emails forwarded to the trip, newest first, with what extraction made of each. */
 export function InboundEmailList({ emails }: { emails: InboundEmail[] }) {
   return (
     <section aria-labelledby="forwarded-emails" className="mt-10">
@@ -38,12 +48,14 @@ export function InboundEmailList({ emails }: { emails: InboundEmail[] }) {
                   {email.fromName ? `${email.fromName} · ${email.fromAddress}` : email.fromAddress}
                 </p>
               </div>
-              <time
-                dateTime={email.receivedAt}
-                className="shrink-0 text-xs text-neutral-600 tabular-nums"
-              >
-                {receivedTime.format(new Date(email.receivedAt))}
-              </time>
+              <div className="flex shrink-0 items-center gap-3">
+                <Tag tone={email.status === "extracted" ? "soft" : "subtle"}>
+                  {STATUS_LABELS[email.status]}
+                </Tag>
+                <time dateTime={email.receivedAt} className="text-xs text-neutral-600 tabular-nums">
+                  {receivedTime.format(new Date(email.receivedAt))}
+                </time>
+              </div>
             </li>
           ))}
         </ul>
