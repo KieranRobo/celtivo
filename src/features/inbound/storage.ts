@@ -39,7 +39,11 @@ function r2Store(
       const url = `${endpoint.replace(/\/$/, "")}/${bucket}/${key.split("/").map(encodeURIComponent).join("/")}`;
       const response = await client.fetch(url);
       if (response.status === 404) throw new RawEmailMissing(`No object at ${key}`);
-      if (!response.ok) throw new Error(`R2 answered ${response.status} for ${key}`);
+      if (!response.ok) {
+        // R2's XML error names the cause: SignatureDoesNotMatch, InvalidAccessKeyId, AccessDenied…
+        const code = /<Code>([^<]+)<\/Code>/.exec(await response.text())?.[1];
+        throw new Error(`R2 answered ${response.status}${code ? ` (${code})` : ""} for ${key}`);
+      }
       return new Uint8Array(await response.arrayBuffer());
     },
   };
