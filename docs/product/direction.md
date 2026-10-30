@@ -138,3 +138,7 @@ separate project.
 | 2026-10-29 | Inbound mail via Cloudflare Email Routing on `celtivo.space`  | Free and in our stack; a celtivo.com subdomain would take over celtivo.com's MX  |
 | 2026-10-29 | Trip address is `<name-slug>-<token>@celtivo.space`           | Catch-all routes any address; only the token is looked up, so renames are safe   |
 | 2026-10-29 | Raw emails go to R2, written by the Email Worker first        | Survives app downtime (Workers can't temp-fail); ~free; no new data processor    |
+| 2026-10-30 | Bookings: shared `bookings` table + a detail table per kind   | Board, review and dedupe work across kinds; each kind keeps its own shape        |
+| 2026-10-30 | Extraction job runs in the app; `inbound_emails` is its queue | No new service or dependency; NOTIFY wakes it, a poll backs it up                |
+| 2026-10-30 | Extractors are pluggable per booking kind; flights first      | New kinds plug in without touching the pipeline, job or Claude call              |
+| 2026-10-30 | Default extraction model: Claude Haiku 5.5                    | Cost first; to be checked against real emails with `pnpm extract`                |

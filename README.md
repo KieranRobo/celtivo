@@ -11,20 +11,21 @@ pnpm db:up        # local Postgres in Docker on :5432
 pnpm dev          # http://localhost:3000 — applies pending migrations on start
 ```
 
-| Script                | What it does                                        |
-| --------------------- | --------------------------------------------------- |
-| `pnpm dev`            | Dev server (Turbopack)                              |
-| `pnpm build`          | Production build                                    |
-| `pnpm check`          | Typecheck + lint + format check + unit tests        |
-| `pnpm test`           | Vitest in watch mode                                |
-| `pnpm test:e2e`       | Playwright, desktop + mobile (builds the app first) |
-| `pnpm format`         | Prettier (also sorts Tailwind classes)              |
-| `pnpm db:up`          | Start the local Postgres (`docker compose`)         |
-| `pnpm db:generate`    | Write a SQL migration from changes to the schema    |
-| `pnpm db:migrate`     | Apply pending migrations to `DATABASE_URL`          |
-| `pnpm db:studio`      | Browse the database in Drizzle Studio               |
-| `pnpm inbound:send`   | Run an `.eml` through the inbound pipeline locally  |
-| `pnpm inbound:deploy` | Deploy the inbound Email Worker to Cloudflare       |
+| Script                | What it does                                         |
+| --------------------- | ---------------------------------------------------- |
+| `pnpm dev`            | Dev server (Turbopack)                               |
+| `pnpm build`          | Production build                                     |
+| `pnpm check`          | Typecheck + lint + format check + unit tests         |
+| `pnpm test`           | Vitest in watch mode                                 |
+| `pnpm test:e2e`       | Playwright, desktop + mobile (builds the app first)  |
+| `pnpm format`         | Prettier (also sorts Tailwind classes)               |
+| `pnpm db:up`          | Start the local Postgres (`docker compose`)          |
+| `pnpm db:generate`    | Write a SQL migration from changes to the schema     |
+| `pnpm db:migrate`     | Apply pending migrations to `DATABASE_URL`           |
+| `pnpm db:studio`      | Browse the database in Drizzle Studio                |
+| `pnpm inbound:send`   | Run an `.eml` through the inbound pipeline locally   |
+| `pnpm inbound:deploy` | Deploy the inbound Email Worker to Cloudflare        |
+| `pnpm extract`        | Run booking extraction on `.eml` files (no database) |
 
 ## Docker
 
@@ -91,6 +92,34 @@ The Worker also runs every 15 minutes to retry any message the app didn't acknow
 leaves an `unacked/<key>` marker in the bucket). `pnpm wrangler tail celtivo-inbound-email`
 streams its logs.
 
+## Booking extraction
+
+A job inside the app reads each forwarded email and saves the bookings in it (flights so far)
+as "pending review". It starts with the server when `ANTHROPIC_API_KEY` is set; the endpoint
+wakes it through Postgres `NOTIFY`, and it also polls every minute. Design and the
+add-a-booking-kind guide: [email-ingestion.md](./docs/product/email-ingestion.md#extract-phase-2b).
+
+**Locally** it reads raw mail from `.inbound/` (where `pnpm inbound:send` writes). To try the
+extraction alone on real emails, without a database:
+
+```bash
+pnpm extract fixtures/emails/*.eml     # fixtures/emails/ is gitignored: real emails hold personal data
+EXTRACTION_MODEL=claude-sonnet-5-5 pnpm extract fixtures/emails/ba.eml   # compare models
+```
+
+**In production** the app reads raw mail from R2. Set these in Dokploy alongside
+`ANTHROPIC_API_KEY`:
+
+1. In Cloudflare: **R2 → Manage API tokens → Create API token**, permission **Object Read
+   only**, applied to the `celtivo-inbound` bucket only.
+2. `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY` from the token.
+3. `R2_ENDPOINT=https://<account-id>.eu.r2.cloudflarestorage.com` (the EU endpoint, because the
+   bucket is in the EU jurisdiction; the account ID is on the R2 overview page).
+
+Optional: `EXTRACTION_MODEL` (default `claude-haiku-5-5`), `EXTRACTION_DAILY_AI_CAP` (default
+50 Claude calls per trip per day), `EXTRACTION_JOB=off`. Each email's outcome, error and token
+counts are on its `inbound_emails` row; the server log has a line per email.
+
 ## Stack
 
 - **Next.js 16** (App Router, React 19, TypeScript, Cache Components) — read the
@@ -148,5 +177,6 @@ start with [direction.md](./docs/product/direction.md) and
 
 ## Not built yet
 
-- Auth — anyone can create a trip, and trips aren't tied to a user yet.
+- Auth — anyone can create a trip, and trips aren't tied to a user yet. Until then, the
+  extraction job reads mail from any sender who has the trip's address.
 - `/sign-in` and `/support` (currently fall through to the 404 page).

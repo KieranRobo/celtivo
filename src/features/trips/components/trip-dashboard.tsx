@@ -1,3 +1,5 @@
+import { TripFlights } from "@/features/bookings/components/trip-flights";
+import type { TripBooking } from "@/features/bookings/schema";
 import { InboundEmailList } from "@/features/inbound/components/inbound-email-list";
 import type { InboundEmail } from "@/features/inbound/schema";
 import { cn } from "@/lib/utils";
@@ -13,7 +15,15 @@ const createdDate = new Intl.DateTimeFormat("en-GB", {
 });
 
 /** The trip's home: what the organiser told us, and what's been forwarded to it. */
-export function TripDashboard({ trip, emails }: { trip: Trip; emails: InboundEmail[] }) {
+export function TripDashboard({
+  trip,
+  bookings,
+  emails,
+}: {
+  trip: Trip;
+  bookings: TripBooking[];
+  emails: InboundEmail[];
+}) {
   const groupSize = GROUP_SIZES.find((size) => size.value === trip.groupSize)?.label;
   const details = [
     { label: "Where to", value: trip.destination },
@@ -47,6 +57,7 @@ export function TripDashboard({ trip, emails }: { trip: Trip; emails: InboundEma
           ))}
         </dl>
 
+        <TripFlights bookings={bookings} />
         <InboundEmailList emails={emails} />
       </section>
 

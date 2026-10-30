@@ -15,6 +15,13 @@
       "when": 1793312206553,
       "tag": "0001_inbound_emails",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793375678612,
+      "tag": "0002_bookings_and_flights",
+      "breakpoints": true
     }
   ]
 }

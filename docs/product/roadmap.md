@@ -88,7 +88,7 @@ review.
 
 Split into two slices. 2a doesn't need phase 1's accounts, so it can be built first.
 
-**2a — Receive and store** 🟨 built, awaiting deploy (see
+**2a — Receive and store** ✅ (see
 [email-ingestion.md](./email-ingestion.md#receive-and-store-phase-2a))
 
 - Per-trip address `<name-slug>-<token>@celtivo.space`: Email Routing catch-all on the
@@ -100,21 +100,28 @@ Split into two slices. 2a doesn't need phase 1's accounts, so it can be built fi
 - Done when: an email sent to a trip's address on production appears in a basic list on its
   dashboard, and the raw message is in R2.
 
-**2b — Extract**
+**2b — Extract** 🟨 flights built (see
+[email-ingestion.md](./email-ingestion.md#extract-phase-2b))
 
-- Worker service (second Dokploy app from this repo) with a Postgres-backed queue.
-- Sender rules: verified member addresses only, SPF/DKIM pass; others to an approval queue.
-- Extraction from phase 0 wired in; bookings saved as "pending review".
-- Dedupe (message-id, content hash, booking reference + provider).
-- Abuse controls: per-trip daily extraction cap, token usage logged per email, Anthropic Console
-  spend limit.
+- ✅ Extraction job inside the app; `inbound_emails` is the queue, woken by NOTIFY from the
+  endpoint, with a 1-minute poll as backstop.
+- ✅ Modular extractors (one per booking kind); flights first: schema.org, then Claude
+  (Haiku 5.5) with structured output; saved as "pending review" in `bookings` +
+  `flight_segments`.
+- ✅ Dedupe on message-id and booking reference; per-trip daily Claude cap; tokens logged per
+  email.
+- ✅ Flights and each email's status on the trip dashboard.
+- ⬜ Sender rules: verified member addresses only, SPF/DKIM pass; others to an approval queue
+  (needs phase 1 accounts).
+- ⬜ Measure Haiku's accuracy on real emails with `pnpm extract`; other booking kinds.
 
 **Out of scope:** the board UI beyond a basic list for testing.
 
 **Done when:** forwarding a real booking email from a member's address produces a correct
 pending booking within a minute on production, and duplicates and unknown senders are handled.
 
-**Open questions:** pg-boss vs graphile-worker?
+**Open questions:** is Haiku 5.5 accurate enough on real flight emails? Which kind comes
+next (stays, probably)?
 
 ---
 

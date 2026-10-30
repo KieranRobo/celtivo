@@ -1,10 +1,10 @@
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { inboundEmails, trips } from "@/db/schema";
 
 import type { EmailHeaders } from "./headers";
-import type { InboundEmail, InboundNotice } from "./schema";
+import { NOTIFY_CHANNEL, type InboundEmail, type InboundNotice } from "./schema";
 
 export type StoreOutcome = "stored" | "duplicate" | "unknown-trip";
 
@@ -24,24 +24,29 @@ export async function storeInboundEmail(
   });
   if (!trip) return "unknown-trip";
 
-  const [row] = await db
-    .insert(inboundEmails)
-    .values({
-      tripId: trip.id,
-      rawKey: notice.key,
-      rawSize: notice.rawSize,
-      envelopeFrom: notice.from,
-      envelopeTo: notice.to,
-      headerFrom: headers.fromAddress,
-      headerFromName: headers.fromName,
-      subject: headers.subject,
-      messageId: headers.messageId,
-      sentAt: headers.sentAt,
-      authResults: headers.authResults,
-    })
-    .onConflictDoNothing()
-    .returning({ id: inboundEmails.id });
-  if (row) return "stored";
+  const stored = await db.transaction(async (tx) => {
+    const [row] = await tx
+      .insert(inboundEmails)
+      .values({
+        tripId: trip.id,
+        rawKey: notice.key,
+        rawSize: notice.rawSize,
+        envelopeFrom: notice.from,
+        envelopeTo: notice.to,
+        headerFrom: headers.fromAddress,
+        headerFromName: headers.fromName,
+        subject: headers.subject,
+        messageId: headers.messageId,
+        sentAt: headers.sentAt,
+        authResults: headers.authResults,
+      })
+      .onConflictDoNothing()
+      .returning({ id: inboundEmails.id });
+    // Wakes the extraction job. Postgres delivers it on commit, so the row is there to claim.
+    if (row) await tx.execute(sql`select pg_notify(${NOTIFY_CHANNEL}, ${row.id})`);
+    return Boolean(row);
+  });
+  if (stored) return "stored";
 
   const sameKey = await db.query.inboundEmails.findFirst({
     columns: { id: true },
@@ -60,6 +65,7 @@ export async function listInboundEmails(tripId: string): Promise<InboundEmail[]>
       headerFromName: true,
       envelopeFrom: true,
       receivedAt: true,
+      status: true,
     },
     where: eq(inboundEmails.tripId, tripId),
     orderBy: desc(inboundEmails.receivedAt),
@@ -71,5 +77,6 @@ export async function listInboundEmails(tripId: string): Promise<InboundEmail[]>
     fromName: row.headerFromName ?? undefined,
     fromAddress: row.headerFrom ?? row.envelopeFrom,
     receivedAt: row.receivedAt.toISOString(),
+    status: row.status,
   }));
 }

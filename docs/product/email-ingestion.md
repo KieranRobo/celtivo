@@ -14,14 +14,15 @@ member forwards → <name-slug>-<token>@celtivo.space
       3. app answers 404 (no such trip) → setReject, delete the object
          app unreachable → leave an unacked/ marker; a cron sweep retries every 15 min
   → POST /api/inbound/email        verify the shared secret, find the trip by token, parse
-                                    the headers, dedupe, insert inbound_emails, return 200
-                                    (2b: enqueue an extraction job)
-  → worker container (Dokploy)     1. sender check (known member? SPF/DKIM pass?)
-                                    2. is this a booking? (rules first)
-                                    3. schema.org JSON-LD/microdata → structured booking
-                                    4. otherwise HTML → text, then Claude extraction
-                                       with structured output, validated by a Zod schema
-                                    5. match to existing bookings (dedupe / update / cancel)
+                                    the headers, dedupe, insert inbound_emails and NOTIFY
+                                    in one transaction, return 200
+  → extraction job (in the app)    woken by NOTIFY (and a 1-minute poll); claims the row
+                                    1. read the raw message from R2, parse it
+                                    2. pre-filter: could any extractor's kind be in here?
+                                    3. schema.org JSON-LD → bookings (free, exact)
+                                    4. otherwise HTML → text, Claude with structured output
+                                    5. each extractor validates and saves its bookings;
+                                       a known booking reference matches, not duplicates
   → Postgres (Drizzle)             bookings awaiting review → trip board
 ```
 
@@ -44,9 +45,10 @@ member forwards → <name-slug>-<token>@celtivo.space
   tier (10 GB-month, 1M writes) covers ~30k emails a month at ~300 KB each; 100k a month is
   ~$0.30. Cloudflare already handles every email via Email Routing, so R2 adds no new data
   processor. The app reads objects back with an R2 API token (S3-compatible API).
-- **Why a worker:** extraction takes seconds; the inbound webhook must answer immediately. A
-  Postgres-backed job queue (pg-boss or graphile-worker) avoids adding Redis. The worker is a
-  second service in Dokploy built from the same repo.
+- **Why a job:** extraction takes seconds; the inbound webhook must answer immediately. The
+  job runs inside the app server, with `inbound_emails` as its queue (see
+  [Extract (phase 2b)](#extract-phase-2b)). It's self-contained, so it can move to its own
+  Dokploy service later without changing how it's triggered.
 - **Inbound provider:** Cloudflare Email Routing + Workers (free, already in our stack; we parse
   MIME ourselves with `postal-mime`). Postmark Inbound (parsed JSON, paid) remains the fallback.
 - **Keep the Email Worker dumb:** it stores and notifies, nothing more. MIME parsing, sender
@@ -94,6 +96,57 @@ a content hash for dedupe (forwarded copies of one booking differ byte-for-byte,
 hash extracted text), reading raw mail back from R2 (needs an R2 API token in the app),
 extraction.
 
+## Extract (phase 2b)
+
+Flights only for now; the pipeline is built so other kinds plug in. Code is in
+`src/features/extraction/`.
+
+**Extractors are the unit of modularity.** Each booking kind is one `Extractor`
+(`extraction/types.ts`) listed in `extraction/registry.ts`. An extractor supplies:
+
+- `mightContain(email)` — a cheap keyword check before any AI spend; errs towards yes
+- `fromSchemaOrg(nodes)` — bookings from JSON-LD markup (flights: `FlightReservation`)
+- `aiSchema` + `aiInstructions` — its part of the Claude request; the pipeline builds one
+  structured-output schema from every candidate extractor (a discriminated union on `kind`),
+  so one call extracts all kinds at once
+- `fromAi(output)` — strict validation and normalisation of what Claude returned (IATA codes,
+  real time zones, arrival after departure); bad items are dropped, not saved
+- `save(tx, context)` — writes the shared `bookings` row (+ `booking_travellers`) and the kind's
+  detail table (`flight_segments`)
+
+Adding hotels means a `stay` extractor, a `stays` table and a line in the registry; the
+pipeline, the job and the Claude call don't change.
+
+**Data model:** `bookings` holds what every kind shares (trip, kind, provider, booking
+reference, review status, source email, extraction path); each kind has a detail table.
+Duplicates are matched on `(trip, kind, reference)`: three people forwarding the same
+confirmation make one booking. Flight times are stored as the airport's wall-clock time + IANA
+zone (shown as written) and as an instant (for ordering). schema.org markup gives offsets but
+no zones, so those segments have a null zone.
+
+**The job** (`extraction/job.ts`) starts from `src/instrumentation.ts` when
+`ANTHROPIC_API_KEY` is set (and, in production, the R2 read credentials).
+
+- Queue: `inbound_emails.status`. The job claims the oldest due row with
+  `FOR UPDATE SKIP LOCKED`, setting `extracting` and a 5-minute lock, so a crashed run is picked
+  up again and several instances can share the work.
+- Wake-up: the endpoint sends `NOTIFY inbound_email` in the insert's transaction, so extraction
+  starts within moments; a poll every minute catches anything missed during deploys and runs
+  due retries.
+- Outcomes: `extracted` (≥1 booking added or matched), `ignored` (nothing we handle), `failed`.
+  Errors retry after 1, 5 and 30 minutes, then fail; refusals, bad requests and expired raw
+  mail fail at once. The error, extraction path, model and token counts are kept on the row.
+- Cost controls: the pre-filter, schema.org first, a cap of 50 Claude calls per trip per day
+  (`EXTRACTION_DAILY_AI_CAP`; over it, emails wait an hour), text capped at 100k characters.
+  Set a spend limit in the Anthropic Console too.
+
+**Model:** `claude-haiku-5-5` by default (`EXTRACTION_MODEL` to change), at effort `medium`.
+Chosen for cost before accuracy has been measured — check it with `pnpm extract` on real emails
+(the phase 0 script) and switch if times or legs come out wrong.
+
+**Not yet:** sender verification (needs accounts, phase 1), PDF attachments, reschedules and
+cancellations updating a booking (phase 4), other kinds.
+
 ## Data model sketch
 
 To be refined in phase 1/2:
@@ -104,18 +157,20 @@ To be refined in phase 1/2:
 - `inbound_emails` — trip, sender, message-id, content hash, storage key, status, token usage
   (first version in [Receive and store](#receive-and-store-phase-2a))
 - `bookings` — trip, kind (flight / stay / train / event / car / other), provider, booking
-  reference (sensitive), start/end as timestamps **with time zone**, location, amount
-  (integer minor units + currency), payer member, status (pending review / confirmed /
-  cancelled), source email
-- `booking_travellers` — booking ↔ member, with the name as written on the booking
+  reference (sensitive), status (pending review / confirmed / cancelled), source email, plus a
+  detail table per kind (built: `flight_segments`); still to come: amount (integer minor units
+  - currency), payer member
+- `booking_travellers` — booking ↔ member, with the name as written on the booking (built
+  without the member link, which comes with phase 3)
 - `documents` — attachments worth keeping (e-tickets, boarding passes), linked to a booking
 
 ## Extraction
 
-1. **Filter before anything costs money:** known booking senders, subject keywords
-   ("confirmation", "itinerary", "e-ticket"), attachments. Newsletters and reply chains stop here.
-2. **Dedupe before extraction:** message-id and a content hash. Three people forwarding the same
-   Airbnb email costs one extraction.
+1. **Filter before anything costs money:** each extractor's keyword check (built). Known
+   booking senders and attachments could tighten it later.
+2. **Dedupe:** message-id on arrival (built), booking reference after extraction (built). A
+   content hash before extraction would save the second Claude call when three people forward
+   the same email; forwarded copies differ byte-for-byte, so it has to hash the extracted text.
 3. **schema.org first:** many airline, hotel and ticketing emails embed `FlightReservation`,
    `LodgingReservation`, `EventReservation` markup (what Gmail uses for trip cards). Free and
    exact.

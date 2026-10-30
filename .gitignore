@@ -51,3 +51,6 @@ next-env.d.ts
 
 # raw emails from `pnpm inbound:send` (stands in for R2 locally)
 /.inbound/
+
+# real booking emails for `pnpm extract` (personal data: never commit)
+/fixtures/emails/
